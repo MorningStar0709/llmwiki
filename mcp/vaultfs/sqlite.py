@@ -33,6 +33,11 @@ def _rows_to_dicts(cursor: aiosqlite.Cursor, rows: list[tuple]) -> list[dict]:
                 d["elements"] = json.loads(d["elements"])
             except (json.JSONDecodeError, TypeError):
                 pass
+        if "highlights" in d and isinstance(d["highlights"], str):
+            try:
+                d["highlights"] = json.loads(d["highlights"])
+            except (json.JSONDecodeError, TypeError):
+                d["highlights"] = []
         results.append(d)
     return results
 
@@ -98,7 +103,7 @@ class SqliteVaultFS(VaultFS):
         db = self._db_or_raise()
         cursor = await db.execute(
             "SELECT id, user_id, filename, title, path, content, tags, version, "
-            "file_type, page_count, created_at, updated_at "
+            "file_type, page_count, highlights, created_at, updated_at "
             "FROM documents WHERE filename = ? AND path = ? AND status != 'failed'",
             (filename, dir_path),
         )
@@ -110,7 +115,7 @@ class SqliteVaultFS(VaultFS):
         name_lower = name.lower()
         cursor = await db.execute(
             "SELECT id, user_id, filename, title, path, content, tags, version, "
-            "file_type, page_count, created_at, updated_at "
+            "file_type, page_count, highlights, created_at, updated_at "
             "FROM documents WHERE (lower(filename) = ? OR lower(title) = ?) AND status != 'failed'",
             (name_lower, name_lower),
         )
@@ -185,7 +190,7 @@ class SqliteVaultFS(VaultFS):
     async def list_documents_with_content(self, kb_id: str) -> list[dict]:
         db = self._db_or_raise()
         cursor = await db.execute(
-            "SELECT id, filename, title, path, content, tags, file_type, page_count "
+            "SELECT id, filename, title, path, content, tags, file_type, page_count, highlights "
             "FROM documents WHERE status != 'failed' ORDER BY path, filename",
         )
         return _rows_to_dicts(cursor, await cursor.fetchall())
@@ -240,7 +245,7 @@ class SqliteVaultFS(VaultFS):
         return self._load_local_bytes(relative)
 
     async def load_image_bytes(self, doc_id: str, image_id: str) -> bytes | None:
-        return None
+        return self._load_local_bytes(f"local/{doc_id}/images/{image_id}")
 
     def _load_local_bytes(self, key: str) -> bytes | None:
         if _workspace_root is None:

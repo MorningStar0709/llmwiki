@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from datetime import datetime
 
@@ -54,7 +55,7 @@ class HostedUserService(UserService):
             "total_pages": row["total_pages"],
             "total_storage_bytes": row["total_storage_bytes"],
             "document_count": row["document_count"],
-            "max_pages": limits["page_limit"] if limits else settings.QUOTA_MAX_PAGES,
+            "max_pages": limits["page_limit"] if limits else 0,
             "max_storage_bytes": limits["storage_limit_bytes"] if limits else settings.QUOTA_MAX_STORAGE_BYTES,
         }
 
@@ -264,12 +265,7 @@ class HostedDocumentService(DocumentService):
         return {"url": url}
 
     async def create_note(self, kb_id: str, filename: str, path: str, content: str) -> dict:
-        kb = await self.pool.fetchval(
-            "SELECT id FROM knowledge_bases WHERE id = $1 AND user_id = $2",
-            kb_id, self.user_id,
-        )
-        if not kb:
-            raise HTTPException(status_code=404, detail="Knowledge base not found")
+        await self._validate_kb(kb_id)
 
         meta = parse_frontmatter(content)
         title = meta.get("title", "").strip() or title_from_filename(filename)
@@ -300,6 +296,296 @@ class HostedDocumentService(DocumentService):
             await self.pool.release(conn)
         return dict(row)
 
+    async def create_web_clip(
+        self, kb_id: str, url: str, title: str, html: str,
+        highlights: list[dict] | None = None,
+    ) -> dict:
+        from html_parser import Parser
+
+        await self._validate_kb(kb_id)
+
+        parser = Parser(html, url=url, content_only=True)
+        result = parser.parse(highlights=highlights or [])
+        markdown = result.content
+
+        filename = self._slugify_filename(title, "html")
+        filename = await self._dedupe_filename(kb_id, "/webclipper/", filename, "html")
+
+        enriched = self._merge_text_anchors(highlights or [], result.highlights)
+        highlights_json = json.dumps(enriched)
+
+        conn = await self.pool.acquire()
+        try:
+            async with conn.transaction():
+                row = await conn.fetchrow(
+                    f"INSERT INTO documents (knowledge_base_id, user_id, filename, path, title, "
+                    f"file_type, status, content, tags, metadata, highlights) "
+                    f"VALUES ($1, $2, $3, '/webclipper/', $4, 'html', 'ready', $5, $6, $7, $8::jsonb) "
+                    f"RETURNING {_DOC_COLUMNS}",
+                    kb_id, self.user_id, filename, title, markdown,
+                    [], json.dumps({"source_url": url}), highlights_json,
+                )
+                if markdown:
+                    chunks = chunk_text(markdown)
+                    await store_chunks(conn, str(row["id"]), self.user_id, str(kb_id), chunks)
+        finally:
+            await self.pool.release(conn)
+
+        if self.s3:
+            await self._store_tagged_html(str(row["id"]), parser)
+
+        return dict(row)
+
+    @staticmethod
+    def _merge_text_anchors(payloads: list[dict], mapped) -> list[dict]:
+        """Merge parser-computed text_anchors back onto the original highlight
+        payloads. Preserves all incoming fields (id, type, anchor, comment,
+        color, createdAt) and adds `textAnchor` when located. Highlights that
+        couldn't be located still persist — the wiki viewer can fall back to
+        text search at render time."""
+        anchor_by_index = {i: m.text_anchor for i, m in enumerate(mapped)}
+        merged: list[dict] = []
+        for i, h in enumerate(payloads):
+            if not isinstance(h, dict):
+                continue
+            entry = dict(h)
+            ta = anchor_by_index.get(i)
+            if ta is not None:
+                entry["textAnchor"] = {
+                    "textStart": ta.text_start,
+                    "textEnd": ta.text_end,
+                    "textContent": ta.text_content,
+                    "prefix": ta.prefix,
+                    "suffix": ta.suffix,
+                }
+            merged.append(entry)
+        return merged
+
+    async def get_by_source_url(self, url: str) -> dict | None:
+        row = await self.pool.fetchrow(
+            "SELECT id::text, knowledge_base_id::text, title, path, filename, "
+            "version, highlights "
+            "FROM documents "
+            "WHERE user_id = $1 AND NOT archived "
+            "AND metadata->>'source_url' = $2 "
+            "ORDER BY updated_at DESC LIMIT 1",
+            self.user_id, url,
+        )
+        if not row:
+            return None
+        result = dict(row)
+        result["highlights"] = self._parse_highlights(result.get("highlights"))
+        return result
+
+    async def get_highlights(self, doc_id: str) -> dict | None:
+        row = await self.pool.fetchrow(
+            "SELECT id::text, version, highlights FROM documents "
+            "WHERE id = $1 AND user_id = $2",
+            doc_id, self.user_id,
+        )
+        if not row:
+            return None
+        result = dict(row)
+        result["highlights"] = self._parse_highlights(result.get("highlights"))
+        return result
+
+    async def replace_highlights(
+        self, doc_id: str, highlights: list[dict],
+        expected_version: int | None = None,
+    ) -> dict | None:
+        payload = json.dumps(highlights)
+        if expected_version is None:
+            row = await self.pool.fetchrow(
+                "UPDATE documents SET highlights = $1::jsonb, "
+                "version = version + 1, updated_at = now() "
+                "WHERE id = $2 AND user_id = $3 "
+                "RETURNING id::text, version, highlights",
+                payload, doc_id, self.user_id,
+            )
+        else:
+            row = await self.pool.fetchrow(
+                "UPDATE documents SET highlights = $1::jsonb, "
+                "version = version + 1, updated_at = now() "
+                "WHERE id = $2 AND user_id = $3 AND version = $4 "
+                "RETURNING id::text, version, highlights",
+                payload, doc_id, self.user_id, expected_version,
+            )
+            if not row:
+                # Check whether the doc exists at all (404) vs just stale (409)
+                exists = await self.pool.fetchval(
+                    "SELECT 1 FROM documents WHERE id = $1 AND user_id = $2",
+                    doc_id, self.user_id,
+                )
+                if exists:
+                    return {"conflict": True}
+                return None
+        result = dict(row)
+        result["highlights"] = self._parse_highlights(result.get("highlights"))
+        return result
+
+    @staticmethod
+    def _parse_highlights(value):
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return value
+        try:
+            parsed = json.loads(value)
+        except (TypeError, ValueError):
+            return []
+        return parsed if isinstance(parsed, list) else []
+
+    async def upsert_highlight(
+        self, doc_id: str, highlight: dict,
+        expected_version: int | None = None,
+    ) -> dict | None:
+        """Atomic single-entry upsert by `id`. Idempotent: re-posting the same
+        highlight is safe; the client may use it as a retry-friendly op."""
+        new_id = highlight.get("id")
+        if not new_id:
+            return None
+
+        conn = await self.pool.acquire()
+        try:
+            async with conn.transaction():
+                row = await conn.fetchrow(
+                    "SELECT version, highlights FROM documents "
+                    "WHERE id = $1 AND user_id = $2 FOR UPDATE",
+                    doc_id, self.user_id,
+                )
+                if not row:
+                    return None
+                if expected_version is not None and row["version"] != expected_version:
+                    return {"conflict": True}
+
+                current = self._parse_highlights(row["highlights"])
+                # Replace existing entry with the same id, else append.
+                replaced = False
+                next_list: list[dict] = []
+                for h in current:
+                    if isinstance(h, dict) and h.get("id") == new_id:
+                        next_list.append(highlight)
+                        replaced = True
+                    else:
+                        next_list.append(h)
+                if not replaced:
+                    if len(current) >= 500:
+                        raise HTTPException(
+                            status_code=413,
+                            detail="Highlight limit reached (500 per document)",
+                        )
+                    next_list.append(highlight)
+
+                updated = await conn.fetchrow(
+                    "UPDATE documents SET highlights = $1::jsonb, "
+                    "version = version + 1, updated_at = now() "
+                    "WHERE id = $2 AND user_id = $3 "
+                    "RETURNING id::text, version, highlights",
+                    json.dumps(next_list), doc_id, self.user_id,
+                )
+        finally:
+            await self.pool.release(conn)
+
+        if not updated:
+            return None
+        result = dict(updated)
+        result["highlights"] = self._parse_highlights(result.get("highlights"))
+        return result
+
+    async def delete_highlight(
+        self, doc_id: str, highlight_id: str,
+        expected_version: int | None = None,
+    ) -> dict | None:
+        """Atomic single-entry delete by `id`. Idempotent: deleting an absent
+        id is a no-op (returns the current state with version unchanged)."""
+        conn = await self.pool.acquire()
+        try:
+            async with conn.transaction():
+                row = await conn.fetchrow(
+                    "SELECT version, highlights FROM documents "
+                    "WHERE id = $1 AND user_id = $2 FOR UPDATE",
+                    doc_id, self.user_id,
+                )
+                if not row:
+                    return None
+                if expected_version is not None and row["version"] != expected_version:
+                    return {"conflict": True}
+
+                current = self._parse_highlights(row["highlights"])
+                next_list = [
+                    h for h in current
+                    if not (isinstance(h, dict) and h.get("id") == highlight_id)
+                ]
+                if len(next_list) == len(current):
+                    # No-op: nothing to delete. Return current state without
+                    # bumping the version (idempotent semantics).
+                    return {
+                        "id": doc_id,
+                        "version": row["version"],
+                        "highlights": current,
+                    }
+
+                updated = await conn.fetchrow(
+                    "UPDATE documents SET highlights = $1::jsonb, "
+                    "version = version + 1, updated_at = now() "
+                    "WHERE id = $2 AND user_id = $3 "
+                    "RETURNING id::text, version, highlights",
+                    json.dumps(next_list), doc_id, self.user_id,
+                )
+        finally:
+            await self.pool.release(conn)
+
+        if not updated:
+            return None
+        result = dict(updated)
+        result["highlights"] = self._parse_highlights(result.get("highlights"))
+        return result
+
+    async def _validate_kb(self, kb_id: str) -> None:
+        kb = await self.pool.fetchval(
+            "SELECT id FROM knowledge_bases WHERE id = $1 AND user_id = $2",
+            kb_id, self.user_id,
+        )
+        if not kb:
+            raise HTTPException(status_code=404, detail="Knowledge base not found")
+
+    @staticmethod
+    def _slugify_filename(title: str, ext: str) -> str:
+        slug = re.sub(r"[^\w\s\-.]", "", title.lower().replace(" ", "-"))[:80]
+        return f"{slug}.{ext}"
+
+    async def _dedupe_filename(self, kb_id: str, path: str, filename: str, ext: str) -> str:
+        exists = await self.pool.fetchval(
+            "SELECT id FROM documents WHERE knowledge_base_id = $1 AND user_id = $2 "
+            "AND filename = $3 AND path = $4 AND NOT archived",
+            kb_id, self.user_id, filename, path,
+        )
+        if not exists:
+            return filename
+        base = filename.rsplit(".", 1)[0]
+        for i in range(2, 100):
+            candidate = f"{base}-{i}.{ext}"
+            dup = await self.pool.fetchval(
+                "SELECT id FROM documents WHERE knowledge_base_id = $1 AND user_id = $2 "
+                "AND filename = $3 AND path = $4 AND NOT archived",
+                kb_id, self.user_id, candidate, path,
+            )
+            if not dup:
+                return candidate
+        return filename
+
+    async def _store_tagged_html(self, doc_id: str, parser) -> None:
+        try:
+            await parser.embed_images()
+            tagged = parser.html()
+            await self.s3.upload_bytes(
+                f"{self.user_id}/{doc_id}/tagged.html",
+                tagged.encode("utf-8"),
+                "text/html",
+            )
+        except Exception:
+            pass
+
     async def update_content(self, doc_id: str, content: str) -> dict | None:
         row = await self.pool.fetchrow(
             "UPDATE documents SET content = $1, version = version + 1, updated_at = now() "
@@ -321,6 +607,7 @@ class HostedDocumentService(DocumentService):
 
     async def update_metadata(self, doc_id: str, fields: dict) -> dict | None:
         import json as _json
+
         sets = []
         params = []
         idx = 1
@@ -329,6 +616,10 @@ class HostedDocumentService(DocumentService):
                 sets.append(f"{key} = ${idx}")
                 params.append(fields[key])
                 idx += 1
+        if "knowledge_base_id" in fields:
+            sets.append(f"knowledge_base_id = ${idx}")
+            params.append(fields["knowledge_base_id"])
+            idx += 1
         if "tags" in fields:
             sets.append(f"tags = ${idx}")
             params.append(fields["tags"])
@@ -348,6 +639,96 @@ class HostedDocumentService(DocumentService):
             f"WHERE id = ${idx} AND user_id = ${idx + 1} "
             f"RETURNING {_DOC_COLUMNS}"
         )
+
+        # If we're moving the doc to a different KB, run the doc update +
+        # chunk cascade + reference prune as one transaction. Otherwise,
+        # one-shot update is fine.
+        if "knowledge_base_id" in fields:
+            new_kb_id = fields["knowledge_base_id"]
+
+            # `documents` has UNIQUE(knowledge_base_id, document_number) and
+            # the assignment trigger only fires on INSERT. On a move we have
+            # to compute a fresh document_number for the target KB and bake
+            # it into the UPDATE — otherwise moving doc #N into a KB that
+            # already has #N raises a unique-violation.
+            #
+            # We need to inject `document_number = $X` into `sets` and an
+            # advisory lock around the SELECT MAX/UPDATE pair. Easiest: build
+            # a fresh SQL string that adds the document_number assignment.
+
+            conn = await self.pool.acquire()
+            try:
+                async with conn.transaction():
+                    # Verify ownership of the target KB INSIDE the
+                    # transaction with FOR SHARE so a concurrent transfer
+                    # can't flip ownership between check and update. The
+                    # FOR SHARE lock blocks competing UPDATE/DELETE on the
+                    # KB row until we commit.
+                    owns_target = await conn.fetchval(
+                        "SELECT 1 FROM knowledge_bases "
+                        "WHERE id = $1 AND user_id = $2 FOR SHARE",
+                        new_kb_id, self.user_id,
+                    )
+                    if not owns_target:
+                        raise HTTPException(
+                            status_code=404,
+                            detail="Target knowledge base not found",
+                        )
+                    # Serialize concurrent moves into the same target KB so
+                    # two simultaneous moves can't pick the same number.
+                    await conn.execute(
+                        "SELECT pg_advisory_xact_lock(hashtext($1::text))",
+                        new_kb_id,
+                    )
+                    next_number = await conn.fetchval(
+                        "SELECT COALESCE(MAX(document_number), 0) + 1 "
+                        "FROM documents WHERE knowledge_base_id = $1",
+                        new_kb_id,
+                    )
+
+                    # Inject document_number into the UPDATE before the
+                    # WHERE/RETURNING tail. The base SQL has the form:
+                    #   UPDATE documents SET <sets>, updated_at = now()
+                    #   WHERE id = $N AND user_id = $N+1
+                    #   RETURNING ...
+                    # We add ", document_number = $K" with a new param.
+                    move_params = list(params)
+                    move_params.insert(idx - 1, next_number)
+                    # The `idx`/`idx+1` tail params are doc_id and user_id;
+                    # bump them by one because we've inserted a param before.
+                    new_idx = idx + 1
+                    move_sets = list(sets)
+                    # `sets` already had updated_at appended; insert the
+                    # document_number assignment before it.
+                    insert_at = len(move_sets) - 1
+                    move_sets.insert(insert_at, f"document_number = ${idx}")
+                    move_sql = (
+                        f"UPDATE documents SET {', '.join(move_sets)} "
+                        f"WHERE id = ${new_idx} AND user_id = ${new_idx + 1} "
+                        f"RETURNING {_DOC_COLUMNS}"
+                    )
+
+                    row = await conn.fetchrow(move_sql, *move_params)
+                    if not row:
+                        return None
+                    # Chunks carry their own kb_id for FTS path; cascade.
+                    await conn.execute(
+                        "UPDATE document_chunks SET knowledge_base_id = $1 "
+                        "WHERE document_id = $2",
+                        new_kb_id, doc_id,
+                    )
+                    # References are KB-scoped. Drop edges touching the
+                    # moved doc; the graph rebuilder will re-derive them in
+                    # the new KB on next /graph/rebuild call.
+                    await conn.execute(
+                        "DELETE FROM document_references "
+                        "WHERE source_document_id = $1 OR target_document_id = $1",
+                        doc_id,
+                    )
+            finally:
+                await self.pool.release(conn)
+            return dict(row)
+
         row = await self.pool.fetchrow(sql, *params)
         return dict(row) if row else None
 
