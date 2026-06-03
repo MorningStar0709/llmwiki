@@ -38,6 +38,9 @@ Thumbs.db
 /mcp/wiki/
 /emails/
 
+# Docker volume mount (runtime data: SQLite DB + wiki)
+data/
+
 # Deploy
 deploy.sh
 
