@@ -1,0 +1,17 @@
+FROM python:3.11-slim-bookworm
+
+WORKDIR /app
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+
+COPY mcp/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY mcp/ .
+COPY shared/ /shared/
+
+RUN mkdir -p /workspace
+
+ENV MODE=local
+ENV WORKSPACE_PATH=/workspace
+EXPOSE 8080
+CMD ["python", "-m", "remote_local"]

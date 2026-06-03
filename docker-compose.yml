@@ -1,15 +1,38 @@
 services:
-  db:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: supavault
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
     ports:
-      - "5432:5432"
+      - "8000:8000"
+    environment:
+      MODE: local
+      WORKSPACE_PATH: /workspace
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      API_URL: http://localhost:8000
     volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./supabase/migrations:/docker-entrypoint-initdb.d
+      - ./data:/workspace
+    restart: unless-stopped
 
-volumes:
-  pgdata:
+  mcp:
+    build:
+      context: .
+      dockerfile: mcp/Dockerfile.remote
+    ports:
+      - "8080:8080"
+    environment:
+      WORKSPACE_PATH: /workspace
+      PORT: "8080"
+    volumes:
+      - ./data:/workspace
+    restart: unless-stopped
+
+  web:
+    build: ./web
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:8000}
+    depends_on:
+      - api
+    restart: unless-stopped

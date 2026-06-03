@@ -1,12 +1,20 @@
-FROM node:22-alpine AS builder
+FROM node:22-bookworm-slim AS builder
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+# First do ci to use lockfile versions, then install missing platform native deps
+RUN npm ci && \
+    npm install --no-save lightningcss-linux-x64-gnu @tailwindcss/oxide-linux-x64-gnu
 COPY . .
+
+ARG NEXT_PUBLIC_API_URL=http://localhost:8000
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_MODE=local
+
 RUN npm run build
 
 FROM node:22-alpine
 WORKDIR /app
+ENV NODE_ENV=production
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public

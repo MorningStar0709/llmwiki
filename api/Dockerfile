@@ -1,20 +1,15 @@
-FROM python:3.11-slim-bookworm AS base
+FROM python:3.11-slim-bookworm
+
 WORKDIR /app
-ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
-RUN pip install --no-cache-dir uv pip-audit
+COPY api/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY requirements.lock .
-RUN uv pip install --system --require-hashes -r requirements.lock
-RUN pip-audit -r requirements.lock --strict --desc
+COPY api/ .
+COPY shared/ /shared/
 
-# ---------------------------------------------------------------------------
-# Runtime — only ships if deps are clean
-# ---------------------------------------------------------------------------
-FROM base AS runtime
+RUN mkdir -p /workspace
 
-COPY . .
-
-ENV MODE=hosted
 EXPOSE 8000
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --timeout-graceful-shutdown 30
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
