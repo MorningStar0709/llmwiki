@@ -1,6 +1,10 @@
-# LLM Wiki
+# LLM Wiki 中文汉化版
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-green)](https://opensource.org/licenses/Apache-2.0)
+
+> **本仓库是 [lucasastorian/llmwiki](https://github.com/lucasastorian/llmwiki) 的中文汉化 Fork**，包含 Web UI 全面汉化、SQLite 本地模式 bug 修复，以及 Docker Compose 一键部署方案。
+>
+> 原项目：https://github.com/lucasastorian/llmwiki
 
 Open-source implementation of [Karpathy's LLM Wiki](https://x.com/karpathy/status/2039805659525644595) ([spec](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)).
 
@@ -17,7 +21,41 @@ Point it at a folder, start the local app, and connect Claude over MCP. From the
 3. **Claude connects via MCP** — reads sources, writes wiki pages under `wiki/`, maintains cross-references and footnote citations.
 4. **The wiki improves** as Claude reads more of the workspace and writes more pages. Summaries, entity pages, and cross-references accumulate instead of being re-derived from scratch each conversation.
 
-## Quick Start
+## Docker 一键部署（推荐）
+
+使用 Docker Compose 一键启动全部三个服务，无需手动安装 Python/Node 依赖：
+
+```bash
+git clone https://github.com/MorningStar0709/llmwiki.git
+cd llmwiki
+docker compose up -d --build
+```
+
+启动后访问 [localhost:3000](http://localhost:3000) 即可使用中文界面。
+
+| 服务 | 端口 | 说明 |
+|------|------|------|
+| API | :8000 | FastAPI 后端，SQLite 本地模式 |
+| MCP | :8080 | MCP HTTP 远程服务，供 Qoder/Claude Desktop 连接 |
+| Web | :3000 | Next.js 前端（已汉化） |
+
+数据持久化在 `./data` 目录（挂载为容器内 `/workspace`）。
+
+### MCP 连接配置
+
+Docker 部署后，MCP 服务监听 `http://localhost:8080`。在 Qoder 或 Claude Desktop 的 MCP 配置中添加：
+
+```json
+{
+  "mcpServers": {
+    "llmwiki": {
+      "url": "http://localhost:8080/mcp"
+    }
+  }
+}
+```
+
+## Quick Start（手动安装）
 
 **Requirements:** Python 3.11+, Node.js 20+
 
