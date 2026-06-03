@@ -124,11 +124,11 @@ export function KBSidenav({
       <div className="shrink-0 px-2 pb-1 flex items-center gap-1.5">
         <button
           onClick={() => setSearchOpen(true)}
-          aria-label="Search pages and sources"
+          aria-label="搜索页面和来源"
           className="flex items-center gap-2 flex-1 px-2.5 py-1.5 text-xs text-muted-foreground/50 hover:text-muted-foreground border border-border hover:bg-accent rounded-md transition-colors cursor-pointer"
         >
           <SearchIcon className="size-3" />
-          <span className="flex-1 text-left">Search</span>
+          <span className="flex-1 text-left">搜索</span>
           <kbd className="text-[10px] text-muted-foreground/30 bg-muted px-1 rounded">{isMac ? '⌘K' : 'Ctrl+K'}</kbd>
         </button>
         <button
@@ -139,14 +139,14 @@ export function KBSidenav({
               ? 'bg-accent text-foreground border-border'
               : 'text-muted-foreground/50 hover:text-muted-foreground border-border hover:bg-accent',
           )}
-          title="Knowledge graph"
+          title="知识图谱"
         >
           <Network className="size-3" />
         </button>
         <button
           onClick={onUpload}
           className="flex items-center justify-center px-2.5 py-1.5 text-muted-foreground/50 hover:text-muted-foreground border border-border hover:bg-accent rounded-md transition-colors cursor-pointer"
-          title="Upload files"
+          title="上传文件"
         >
           <Upload className="size-3" />
         </button>
@@ -154,9 +154,9 @@ export function KBSidenav({
 
       {/* Search palette */}
       <CommandDialog open={searchOpen} onOpenChange={setSearchOpen}>
-        <CommandInput placeholder="Jump to page, source, or action..." aria-label="Search pages and sources" />
+        <CommandInput placeholder="跳转到页面、来源或操作..." aria-label="搜索页面和来源" />
         <CommandList>
-          <CommandEmpty>No results found.</CommandEmpty>
+          <CommandEmpty>未找到结果</CommandEmpty>
           {allSearchableItems.some((i) => i.type === 'wiki') && (
             <CommandGroup heading="Wiki">
               {allSearchableItems.filter((i) => i.type === 'wiki').map((item) => (
@@ -185,7 +185,7 @@ export function KBSidenav({
             </CommandGroup>
           )}
           {allSearchableItems.some((i) => i.type === 'source') && (
-            <CommandGroup heading="Sources">
+            <CommandGroup heading="来源">
               {allSearchableItems.filter((i) => i.type === 'source').map((item) => (
                 <CommandItem
                   key={`source-${item.doc?.id}`}
@@ -212,14 +212,14 @@ export function KBSidenav({
             </CommandGroup>
           )}
           <CommandSeparator />
-          <CommandGroup heading="Actions">
+          <CommandGroup heading="操作">
             <CommandItem onSelect={() => { setSearchOpen(false); onFilesToggle() }}>
               <Folder className="size-3.5 mr-2 opacity-50" />
-              Browse Files
+              浏览文件
             </CommandItem>
             <CommandItem onSelect={() => { setSearchOpen(false); onUpload() }}>
               <Upload className="size-3.5 mr-2 opacity-50" />
-              Upload Files
+              上传文件
             </CommandItem>
           </CommandGroup>
         </CommandList>
@@ -249,14 +249,14 @@ export function KBSidenav({
         ) : (
           <div className="px-2 py-4 text-center">
             <BookOpen className="size-6 text-muted-foreground/20 mx-auto mb-2" />
-            <p className="text-xs text-muted-foreground mb-2">No wiki yet</p>
+            <p className="text-xs text-muted-foreground mb-2">暂无 Wiki</p>
             <a
               href="https://claude.ai"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
-              Open Claude
+              打开 Claude
               <ArrowUpRight className="size-3" />
             </a>
           </div>
@@ -275,7 +275,7 @@ export function KBSidenav({
           )}
         >
           <Library className="size-3.5" />
-          <span className="flex-1 text-left">Sources</span>
+          <span className="flex-1 text-left">来源</span>
           {sourceCount > 0 && (
             <span className="text-[10px] text-muted-foreground/30">{sourceCount}</span>
           )}
@@ -437,7 +437,7 @@ function PageUsageBar() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-0.5">
             <span className="text-[10px] text-muted-foreground/60 group-hover:text-muted-foreground transition-colors">
-              Storage
+              存储
             </span>
             <span className="text-[10px] font-mono text-muted-foreground/40 group-hover:text-muted-foreground/60 transition-colors">
               {formatBytes(usage.total_storage_bytes)} / {formatBytes(usage.max_storage_bytes)}
@@ -455,12 +455,12 @@ function PageUsageBar() {
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Storage Usage</DialogTitle>
+            <DialogTitle>存储用量</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 text-sm text-muted-foreground">
             <p>
               You've used <span className="font-medium text-foreground">{formatBytes(usage.total_storage_bytes)}</span> of
-              your <span className="font-medium text-foreground">{formatBytes(usage.max_storage_bytes)}</span> storage limit.
+              your <span className="font-medium text-foreground">{formatBytes(usage.max_storage_bytes)}</span> 存储限额。
             </p>
             <div className="h-2 rounded-full bg-muted overflow-hidden">
               <div
@@ -469,7 +469,7 @@ function PageUsageBar() {
               />
             </div>
             <p>
-              Storage is consumed by uploaded files (PDFs, images, office documents). Notes and wiki pages are free and unlimited.
+              存储由上传的文件（PDF、图片、Office 文档）占用。笔记和 Wiki 页面不限量。
             </p>
           </div>
         </DialogContent>

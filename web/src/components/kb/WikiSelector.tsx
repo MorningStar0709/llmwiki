@@ -84,10 +84,10 @@ export function WikiSelector({ kbName, kbId }: { kbName: string; kbId: string })
         </PopoverTrigger>
         <PopoverContent className="w-52 p-0" align="start">
           <Command>
-            <CommandInput placeholder="Search wikis..." aria-label="Search wikis" value={search} onValueChange={setSearch} />
+            <CommandInput placeholder="搜索 Wiki..." aria-label="搜索 Wiki" value={search} onValueChange={setSearch} />
             <CommandList>
-              <CommandEmpty>No wikis found.</CommandEmpty>
-              <CommandGroup heading="Wikis">
+              <CommandEmpty>未找到 Wiki</CommandEmpty>
+              <CommandGroup heading="Wiki">
                 {knowledgeBases.map((kb) => (
                   <CommandItem
                     key={kb.id}
@@ -104,7 +104,7 @@ export function WikiSelector({ kbName, kbId }: { kbName: string; kbId: string })
               {!search.trim() && (
                 <>
                   <CommandSeparator />
-                  <CommandGroup heading="Actions">
+                  <CommandGroup heading="操作">
                     <CommandItem
                       onSelect={() => {
                         setOpen(false)
@@ -112,7 +112,7 @@ export function WikiSelector({ kbName, kbId }: { kbName: string; kbId: string })
                       }}
                     >
                       <Library className="size-3.5 mr-2" />
-                      View all wikis
+                      查看所有 Wiki
                     </CommandItem>
                     <CommandItem
                       onSelect={() => {
@@ -122,7 +122,7 @@ export function WikiSelector({ kbName, kbId }: { kbName: string; kbId: string })
                       }}
                     >
                       <Pencil className="size-3.5 mr-2" />
-                      Rename
+                      重命名
                     </CommandItem>
                     <CommandItem
                       onSelect={() => {
@@ -132,7 +132,7 @@ export function WikiSelector({ kbName, kbId }: { kbName: string; kbId: string })
                       className="text-destructive"
                     >
                       <Trash2 className="size-3.5 mr-2" />
-                      Delete
+                      删除
                     </CommandItem>
                     <CommandSeparator />
                     <CommandItem
@@ -142,7 +142,7 @@ export function WikiSelector({ kbName, kbId }: { kbName: string; kbId: string })
                       }}
                     >
                       <Plus className="size-3.5 mr-2" />
-                      Create Wiki
+                      新建 Wiki
                     </CommandItem>
                   </CommandGroup>
                 </>
@@ -155,13 +155,13 @@ export function WikiSelector({ kbName, kbId }: { kbName: string; kbId: string })
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create wiki</DialogTitle>
+            <DialogTitle>新建 Wiki</DialogTitle>
           </DialogHeader>
           <input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-            placeholder="My Research"
+            placeholder="我的研究"
             className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
             autoFocus
           />
@@ -171,7 +171,7 @@ export function WikiSelector({ kbName, kbId }: { kbName: string; kbId: string })
               disabled={creating || !newName.trim()}
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 cursor-pointer"
             >
-              {creating ? 'Creating...' : 'Create'}
+              {creating ? '创建中...' : '创建'}
             </button>
           </DialogFooter>
         </DialogContent>
@@ -180,7 +180,7 @@ export function WikiSelector({ kbName, kbId }: { kbName: string; kbId: string })
       <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Rename wiki</DialogTitle>
+            <DialogTitle>重命名 Wiki</DialogTitle>
           </DialogHeader>
           <input
             value={renameName}
@@ -195,7 +195,7 @@ export function WikiSelector({ kbName, kbId }: { kbName: string; kbId: string })
               disabled={renaming || !renameName.trim() || renameName.trim() === kbName}
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 cursor-pointer"
             >
-              {renaming ? 'Renaming...' : 'Rename'}
+              {renaming ? '重命名中...' : '重命名'}
             </button>
           </DialogFooter>
         </DialogContent>
@@ -204,24 +204,24 @@ export function WikiSelector({ kbName, kbId }: { kbName: string; kbId: string })
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete wiki</DialogTitle>
+            <DialogTitle>删除 Wiki</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            This will permanently delete <strong>{kbName}</strong> and all its documents. This cannot be undone.
+            这将永久删除 <strong>{kbName}</strong> 及其所有文档。此操作无法撤销。
           </p>
           <DialogFooter>
             <button
               onClick={() => setDeleteDialogOpen(false)}
               className="rounded-lg border border-input px-4 py-2 text-sm font-medium hover:bg-accent cursor-pointer"
             >
-              Cancel
+              取消
             </button>
             <button
               onClick={handleDelete}
               disabled={deleting}
               className="rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:opacity-90 disabled:opacity-50 cursor-pointer"
             >
-              {deleting ? 'Deleting...' : 'Delete'}
+              {deleting ? '删除中...' : '删除'}
             </button>
           </DialogFooter>
         </DialogContent>

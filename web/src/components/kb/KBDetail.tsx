@@ -283,7 +283,7 @@ export function KBDetail({ kbId, kbSlug, kbName, viewMode, routeFilesPath }: Pro
       return
     }
     if (!activeWikiDoc) {
-      setPageContent(`Page not found: ${wikiActivePath}`)
+      setPageContent(`页面未找到：${wikiActivePath}`)
       setPageTitle('')
       setPageLoadedPath(wikiActivePath)
       return
@@ -300,7 +300,7 @@ export function KBDetail({ kbId, kbSlug, kbName, viewMode, routeFilesPath }: Pro
         if (!controller.signal.aborted) setPageContent(res.content || '')
       })
       .catch((err) => {
-        if (!controller.signal.aborted) setPageContent('Failed to load page content.')
+        if (!controller.signal.aborted) setPageContent('加载页面内容失败。')
       })
       .finally(() => {
         if (!controller.signal.aborted) {
@@ -314,7 +314,7 @@ export function KBDetail({ kbId, kbSlug, kbName, viewMode, routeFilesPath }: Pro
   // ─── Token helper ────────────────────────────────────────────
   const getToken = () => {
     const t = useUserStore.getState().accessToken
-    if (!t) { toast.error('Not authenticated'); return null }
+    if (!t) { toast.error('未登录'); return null }
     return t
   }
 
@@ -363,12 +363,12 @@ export function KBDetail({ kbId, kbSlug, kbName, viewMode, routeFilesPath }: Pro
     const t = getToken()
     if (!t) return
     const ids = Array.from(selectedIds)
-    if (!window.confirm(`Delete ${ids.length} selected document${ids.length > 1 ? 's' : ''}?`)) return
+    if (!window.confirm(`确定要删除 ${ids.length} 个选中文档吗？`)) return
     const results = await Promise.allSettled(ids.map((id) => apiFetch(`/v1/documents/${id}`, t, { method: 'DELETE' })))
     const succeeded = ids.filter((_, i) => results[i].status === 'fulfilled')
     const failed = ids.filter((_, i) => results[i].status === 'rejected')
     if (succeeded.length > 0) setDocuments((prev) => prev.filter((d) => !succeeded.includes(d.id)))
-    if (failed.length > 0) toast.error(`Failed to delete ${failed.length} document${failed.length > 1 ? 's' : ''}`)
+    if (failed.length > 0) toast.error(`删除 ${failed.length} 个文档失败`)
     clearSelection()
   }
 
@@ -525,7 +525,7 @@ export function KBDetail({ kbId, kbSlug, kbName, viewMode, routeFilesPath }: Pro
         navigateToView('files')
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to create note')
+      toast.error(err instanceof Error ? err.message : '创建笔记失败')
     }
   }
 
@@ -544,7 +544,7 @@ export function KBDetail({ kbId, kbSlug, kbName, viewMode, routeFilesPath }: Pro
           navigateToView('files')
         }
       })
-      .catch((err: Error) => toast.error(err.message || 'Failed to create folder'))
+      .catch((err: Error) => toast.error(err.message || '创建文件夹失败'))
   }
 
   const handleMoveDocument = async (docId: string, targetPath: string) => {
@@ -553,7 +553,7 @@ export function KBDetail({ kbId, kbSlug, kbName, viewMode, routeFilesPath }: Pro
     try {
       await apiFetch(`/v1/documents/${docId}`, t, { method: 'PATCH', body: JSON.stringify({ path: targetPath }) })
       setDocuments((prev) => prev.map((d) => d.id === docId ? { ...d, path: targetPath } : d))
-    } catch { toast.error('Failed to move document') }
+    } catch { toast.error('移动文档失败') }
   }
 
   const handleDeleteDocument = async (docId: string) => {
@@ -562,7 +562,7 @@ export function KBDetail({ kbId, kbSlug, kbName, viewMode, routeFilesPath }: Pro
     try {
       await apiFetch(`/v1/documents/${docId}`, t, { method: 'DELETE' })
       setDocuments((prev) => prev.filter((d) => d.id !== docId))
-    } catch { toast.error('Failed to delete document') }
+    } catch { toast.error('删除文档失败') }
   }
 
   const handleRenameDocument = async (docId: string, newTitle: string) => {
@@ -571,7 +571,7 @@ export function KBDetail({ kbId, kbSlug, kbName, viewMode, routeFilesPath }: Pro
     try {
       await apiFetch(`/v1/documents/${docId}`, t, { method: 'PATCH', body: JSON.stringify({ title: newTitle }) })
       setDocuments((prev) => prev.map((d) => d.id === docId ? { ...d, title: newTitle } : d))
-    } catch { toast.error('Failed to rename document') }
+    } catch { toast.error('重命名文档失败') }
   }
 
   // ─── File upload ─────────────────────────────────────────────
@@ -588,15 +588,15 @@ export function KBDetail({ kbId, kbSlug, kbName, viewMode, routeFilesPath }: Pro
 
   const tusUploadFile = React.useCallback((file: File, targetPath: string = '/'): Promise<void> => {
     const t = getToken()
-    if (!t) return Promise.reject(new Error('Not authenticated'))
+    if (!t) return Promise.reject(new Error('未登录'))
     return new Promise((resolve, reject) => {
       const upload = new tus.Upload(file, {
         endpoint: `${API_URL}/v1/uploads`,
         retryDelays: [0, 1000, 3000, 5000],
         metadata: { filename: file.name, knowledge_base_id: kbId, path: targetPath },
         headers: { Authorization: `Bearer ${t}` },
-        onError: (error) => { toast.error(`Upload failed: ${file.name}`); reject(error) },
-        onSuccess: () => { toast.success(`${file.name} uploaded, processing...`); resolve() },
+        onError: (error) => { toast.error(`上传失败：${file.name}`); reject(error) },
+        onSuccess: () => { toast.success(`${file.name} 已上传，正在处理...`); resolve() },
       })
       upload.start()
     })
@@ -615,7 +615,7 @@ export function KBDetail({ kbId, kbSlug, kbName, viewMode, routeFilesPath }: Pro
     const duplicates = files.filter((f) => existingNames.has(f.name.toLowerCase()))
     if (duplicates.length > 0) {
       const names = duplicates.map((f) => f.name).join(', ')
-      toast.error(`Already exists: ${names}`)
+      toast.error(`已存在：${names}`)
       if (duplicates.length === files.length) return
       files = files.filter((f) => !existingNames.has(f.name.toLowerCase()))
     }
@@ -631,7 +631,7 @@ export function KBDetail({ kbId, kbSlug, kbName, viewMode, routeFilesPath }: Pro
             body: JSON.stringify({ filename: file.name, title, content, path: targetPath }),
           })
           setDocuments((prev) => [data, ...prev])
-        } catch { toast.error(`Failed to import ${file.name}`) }
+        } catch { toast.error(`导入失败：${file.name}`) }
       } else {
         const supportedTypes = new Set(['pdf', 'pptx', 'ppt', 'docx', 'doc', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'xlsx', 'xls', 'csv', 'html', 'htm'])
         if (ext && supportedTypes.has(ext)) {
@@ -644,19 +644,19 @@ export function KBDetail({ kbId, kbSlug, kbName, viewMode, routeFilesPath }: Pro
               if (!res.ok) throw new Error(`Upload failed: ${res.status}`)
               const data = await res.json()
               setDocuments((prev) => [data, ...prev])
-              toast.success(`${file.name} uploaded`)
-            } catch { toast.error(`Upload failed: ${file.name}`) }
+              toast.success(`${file.name} 已上传`)
+            } catch { toast.error(`上传失败：${file.name}`) }
           } else {
             await tusUploadFile(file, targetPath)
           }
         } else {
-          toast.info(`${ext} files not yet supported`)
+          toast.info(`不支持 ${ext} 格式的文件`)
         }
       }
     })
     Promise.all(uploads).then(() => {
       const textFiles = files.filter((f) => /\.(md|txt)$/i.test(f.name))
-      if (textFiles.length > 0) toast.success(`Imported ${textFiles.length} file${textFiles.length > 1 ? 's' : ''}`)
+      if (textFiles.length > 0) toast.success(`已导入 ${textFiles.length} 个文件`)
       // Navigate to files view after first upload
       if (sourceDocs.length === 0) {
         setActiveView('files')
@@ -750,8 +750,8 @@ export function KBDetail({ kbId, kbSlug, kbName, viewMode, routeFilesPath }: Pro
           >
             <div className="flex flex-col items-center gap-3 border-2 border-dashed border-primary rounded-xl px-12 py-10">
               <UploadIcon className="size-8 text-primary" />
-              <p className="text-sm font-medium text-primary">Drop files to upload</p>
-              <p className="text-xs text-muted-foreground">PDF, Word, PowerPoint, images, and more</p>
+              <p className="text-sm font-medium text-primary">松开以上传文件</p>
+              <p className="text-xs text-muted-foreground">PDF、Word、PowerPoint、图片等</p>
             </div>
           </motion.div>
         )}
@@ -871,9 +871,9 @@ export function KBDetail({ kbId, kbSlug, kbName, viewMode, routeFilesPath }: Pro
               >
                 <BookOpen className="size-10 text-muted-foreground/20" />
                 <div className="text-center max-w-sm">
-                  <h3 className="text-base font-medium mb-1.5">No wiki yet</h3>
+                  <h3 className="text-base font-medium mb-1.5">暂无 Wiki</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    Add some sources, then ask Claude to compile a wiki from them.
+                    添加一些来源，然后让 Claude 从中编译 Wiki。
                   </p>
                 </div>
                 <div className="flex items-center gap-3 mt-2">
@@ -882,7 +882,7 @@ export function KBDetail({ kbId, kbSlug, kbName, viewMode, routeFilesPath }: Pro
                     className="inline-flex items-center gap-2 rounded-full bg-foreground text-background px-5 py-2 text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer"
                   >
                     <UploadIcon className="size-3.5 opacity-60" />
-                    Upload Sources
+                    上传来源
                   </button>
                   <a
                     href="https://claude.ai"
@@ -890,7 +890,7 @@ export function KBDetail({ kbId, kbSlug, kbName, viewMode, routeFilesPath }: Pro
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-2 text-sm font-medium hover:bg-accent transition-colors"
                   >
-                    Open Claude
+                    打开 Claude
                     <ArrowUpRight className="size-3.5 opacity-60" />
                   </a>
                 </div>

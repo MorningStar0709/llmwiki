@@ -60,20 +60,20 @@ export default function SettingsPage() {
         >
           <ArrowLeft className="size-4" />
         </button>
-        <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
+        <h1 className="text-xl font-semibold tracking-tight">设置</h1>
       </div>
 
       {/* Usage */}
       {usage && (
         <section>
-          <h2 className="text-base font-medium">Usage</h2>
+          <h2 className="text-base font-medium">使用情况</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {usage.document_count} document{usage.document_count !== 1 ? 's' : ''} uploaded
+            {usage.document_count} 个文档已上传
           </p>
           <div className="mt-4 space-y-4">
             <div>
               <div className="flex items-center justify-between text-sm mb-1.5">
-                <span className="text-muted-foreground">Storage</span>
+                <span className="text-muted-foreground">存储</span>
                 <span className="font-mono text-xs">
                   {formatBytes(usage.total_storage_bytes)} / {formatBytes(usage.max_storage_bytes)}
                 </span>
@@ -94,7 +94,7 @@ export default function SettingsPage() {
             </div>
             <div>
               <div className="flex items-center justify-between text-sm mb-1.5">
-                <span className="text-muted-foreground">OCR Pages</span>
+                <span className="text-muted-foreground">OCR 页数</span>
                 <span className="font-mono text-xs">
                   {usage.total_pages.toLocaleString()} / {usage.max_pages.toLocaleString()}
                 </span>
@@ -122,12 +122,12 @@ export default function SettingsPage() {
       {/* MCP Config */}
       <section>
         <h2 className="text-base font-medium">
-          {process.env.NEXT_PUBLIC_MODE === 'local' ? 'Connect Claude' : 'Connect via OAuth'}
+          {process.env.NEXT_PUBLIC_MODE === 'local' ? '连接 Claude' : '通过 OAuth 连接'}
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
           {process.env.NEXT_PUBLIC_MODE === 'local'
-            ? 'Run this command to get the Claude Desktop / Claude Code MCP config for this workspace:'
-            : 'Add this configuration to your MCP client. On first connection, it should prompt you to sign in with Supabase.'
+            ? '运行以下命令获取此工作区的 Claude Desktop / Claude Code MCP 配置：'
+            : '将此配置添加到您的 MCP 客户端。首次连接时，应会提示您使用 Supabase 登录。'
           }
         </p>
         <div className="relative mt-4">
@@ -147,7 +147,7 @@ export default function SettingsPage() {
                   : 'bg-background border border-border text-muted-foreground hover:text-foreground hover:bg-accent'
               )}
             >
-              {configCopied ? <><Check size={12} />Copied</> : <><Copy size={12} />Copy</>}
+              {configCopied ? <><Check size={12} />已复制</> : <><Copy size={12} />复制</>}
             </button>
           )}
         </div>

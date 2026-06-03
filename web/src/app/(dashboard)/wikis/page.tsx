@@ -20,15 +20,15 @@ const isLocal = process.env.NEXT_PUBLIC_MODE === 'local'
 function relativeTime(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
   const minutes = Math.floor(diff / 60000)
-  if (minutes < 1) return 'Just now'
-  if (minutes < 60) return `${minutes}m ago`
+  if (minutes < 1) return '刚刚'
+  if (minutes < 60) return `${minutes}分钟前`
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
+  if (hours < 24) return `${hours}小时前`
   const days = Math.floor(hours / 24)
-  if (days < 30) return `${days}d ago`
+  if (days < 30) return `${days}天前`
   const months = Math.floor(days / 30)
-  if (months < 12) return `${months}mo ago`
-  return `${Math.floor(months / 12)}y ago`
+  if (months < 12) return `${months}个月前`
+  return `${Math.floor(months / 12)}年前`
 }
 
 export default function WikisPage() {
@@ -91,7 +91,7 @@ export default function WikisPage() {
                 <AlertCircle className="size-4" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-sm font-semibold text-foreground">Could not load wikis</h1>
+                <h1 className="text-sm font-semibold text-foreground">无法加载 Wiki</h1>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
                   {error}
                 </p>
@@ -121,10 +121,10 @@ export default function WikisPage() {
                 <BookOpen size={24} className="text-background" />
               </div>
               <h1 className="text-3xl font-bold tracking-tight">
-                Create your first wiki
+                创建你的第一个 Wiki
               </h1>
               <p className="mt-3 text-base text-muted-foreground leading-relaxed max-w-md mx-auto">
-                Upload sources, connect Claude, and let it compile a structured wiki automatically.
+                上传来源、连接 Claude，让它自动编译结构化 Wiki。
               </p>
             </div>
 
@@ -132,18 +132,18 @@ export default function WikisPage() {
               {[
                 {
                   step: '1',
-                  title: 'Create a wiki',
-                  desc: 'Name your knowledge space. You can have as many as you need.',
+                  title: '创建 Wiki',
+                  desc: '命名你的知识空间。可以创建任意数量的 Wiki。',
                 },
                 {
                   step: '2',
-                  title: 'Add sources',
-                  desc: 'Upload PDFs, notes, transcripts — anything you want Claude to learn from.',
+                  title: '添加来源',
+                  desc: '上传 PDF、笔记、转录稿——任何你想让 Claude 学习的内容。',
                 },
                 {
                   step: '3',
-                  title: 'Ask Claude',
-                  desc: 'Claude reads your sources and compiles a wiki with cross-references and summaries.',
+                  title: '询问 Claude',
+                  desc: 'Claude 读取你的来源，编译出带有交叉引用和摘要的 Wiki。',
                 },
               ].map((item, i) => (
                 <motion.div
@@ -169,16 +169,16 @@ export default function WikisPage() {
                 className="inline-flex items-center justify-center gap-2.5 rounded-full bg-foreground text-background px-8 py-3 text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50"
               >
                 {creating ? (
-                  <><Loader2 size={15} className="animate-spin" /> Setting up...</>
+                  <><Loader2 size={15} className="animate-spin" /> 设置中...</>
                 ) : (
-                  <><Plus size={15} /> Get started</>
+                  <><Plus size={15} /> 开始使用</>
                 )}
               </button>
               <button
                 onClick={() => setDialogOpen(true)}
                 className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
               >
-                or create with a custom name
+                或使用自定义名称创建
               </button>
             </div>
           </div>
@@ -235,7 +235,7 @@ export default function WikisPage() {
                     {stats.length > 0 ? (
                       <span>{stats.join(' \u00B7 ')}</span>
                     ) : (
-                      <span className="text-muted-foreground/30">No sources yet</span>
+                      <span className="text-muted-foreground/30">暂无来源</span>
                     )}
                     <span className="ml-auto text-muted-foreground/30 shrink-0">
                       {relativeTime(kb.updated_at)}
@@ -250,7 +250,7 @@ export default function WikisPage() {
               className="flex flex-col items-center justify-center gap-2 p-5 rounded-xl border border-dashed border-border hover:border-primary/50 hover:bg-accent/30 transition-colors cursor-pointer min-h-[112px]"
             >
               <Plus size={16} className="text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">New Wiki</span>
+              <span className="text-xs text-muted-foreground">新建 Wiki</span>
             </button>
           </div>
         </div>
@@ -279,7 +279,7 @@ function PageHeader({ onNew }: { onNew?: () => void }) {
             className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors cursor-pointer"
           >
             <Plus className="size-3" />
-            New
+            新建
           </button>
         )}
         <UserMenu />
@@ -325,16 +325,16 @@ function UserMenu() {
         {mounted && (
           <DropdownMenuItem onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
             {theme === 'dark' ? (
-              <><Sun className="mr-2 h-4 w-4" />Light Mode</>
+              <><Sun className="mr-2 h-4 w-4" />浅色模式</>
             ) : (
-              <><Moon className="mr-2 h-4 w-4" />Dark Mode</>
+              <><Moon className="mr-2 h-4 w-4" />深色模式</>
             )}
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleSignOut}>
           <LogOut className="mr-2 h-4 w-4" />
-          Sign Out
+          退出登录
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -360,13 +360,13 @@ function CreateWikiDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create wiki</DialogTitle>
+          <DialogTitle>新建 Wiki</DialogTitle>
         </DialogHeader>
         <input
           value={name}
           onChange={(e) => onNameChange(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && onCreate()}
-          placeholder="My Research"
+          placeholder="我的研究"
           className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
           autoFocus
         />
@@ -376,7 +376,7 @@ function CreateWikiDialog({
             disabled={creating || !name.trim()}
             className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 cursor-pointer"
           >
-            {creating ? 'Creating...' : 'Create'}
+            {creating ? '创建中...' : '创建'}
           </button>
         </DialogFooter>
       </DialogContent>
