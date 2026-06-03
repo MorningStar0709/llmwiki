@@ -1,8 +1,13 @@
-# LLM Wiki 中文汉化版
+# LLM Wiki 中文增强版
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-green)](https://opensource.org/licenses/Apache-2.0)
 
-> **本仓库是 [lucasastorian/llmwiki](https://github.com/lucasastorian/llmwiki) 的中文汉化 Fork**，包含 Web UI 全面汉化、SQLite 本地模式 bug 修复，以及 Docker Compose 一键部署方案。
+> **本仓库是 [lucasastorian/llmwiki](https://github.com/lucasastorian/llmwiki) 的中文增强 Fork**，相比原项目：
+>
+> - **Docker 一键部署** — 原项目 docker-compose 仅包含 PostgreSQL，无法本地一键启动。本仓库重写了完整的三服务编排（API + MCP + Web），一条命令即可运行
+> - **Web UI 全面汉化** — 20+ 个组件/页面文件的中文化，覆盖所有主要 UI 区域
+> - **SQLite 本地模式修复** — 修复了 `find_by_path` / `get_by_source_url` 中引用不存在的 `knowledge_base_id` 列导致新建笔记失败的 bug
+> - **MCP HTTP 远程服务** — 新增 `remote_local.py`，MCP 服务支持 HTTP 传输，Qoder/Claude Desktop 可通过 URL 连接
 >
 > 原项目：https://github.com/lucasastorian/llmwiki
 
@@ -22,6 +27,8 @@ Point it at a folder, start the local app, and connect Claude over MCP. From the
 4. **The wiki improves** as Claude reads more of the workspace and writes more pages. Summaries, entity pages, and cross-references accumulate instead of being re-derived from scratch each conversation.
 
 ## Docker 一键部署（推荐）
+
+> **与原项目的差异**：原项目的 `docker-compose.yml` 仅包含 PostgreSQL 容器，三个应用服务（API/MCP/Web）的 Dockerfile 均硬编码为 `MODE=hosted`（依赖 Supabase + S3），本地无法使用 Docker 一键启动。本仓库重写了整套部署方案，面向本地单用户场景。
 
 使用 Docker Compose 一键启动全部三个服务，无需手动安装 Python/Node 依赖：
 
