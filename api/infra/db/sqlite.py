@@ -102,9 +102,9 @@ class SQLiteDocumentRepository:
         self, kb_id: str, user_id: str, filename: str, path: str,
     ) -> dict | None:
         cursor = await self._db.execute(
-            "SELECT * FROM documents WHERE knowledge_base_id = ? AND user_id = ? "
-            "AND filename = ? AND path = ? AND NOT archived",
-            (kb_id, user_id, filename, path),
+            "SELECT * FROM documents WHERE user_id = ? "
+            "AND filename = ? AND path = ?",
+            (user_id, filename, path),
         )
         row = await cursor.fetchone()
         return _row_to_dict(cursor, row) if row else None
@@ -198,7 +198,7 @@ class SQLiteDocumentRepository:
 
     async def get_by_source_url(self, url: str) -> dict | None:
         cursor = await self._db.execute(
-            "SELECT id, knowledge_base_id, title, path, filename, version, highlights "
+            "SELECT id, (SELECT id FROM workspace LIMIT 1) as knowledge_base_id, title, path, filename, version, highlights "
             "FROM documents "
             "WHERE status != 'failed' "
             "AND json_extract(metadata, '$.source_url') = ? "
